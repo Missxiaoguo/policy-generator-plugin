@@ -22,6 +22,7 @@ type PolicyOptions struct {
 	CopyPolicyMetadata             bool               `json:"copyPolicyMetadata,omitempty"             yaml:"copyPolicyMetadata,omitempty"`
 	Dependencies                   []PolicyDependency `json:"dependencies,omitempty"                   yaml:"dependencies,omitempty"`
 	Description                    string             `json:"description,omitempty"                    yaml:"description,omitempty"`
+	EnforcementPlacement           PlacementConfig    `json:"enforcementPlacement,omitempty"           yaml:"enforcementPlacement,omitempty"`
 	ExtraDependencies              []PolicyDependency `json:"extraDependencies,omitempty"              yaml:"extraDependencies,omitempty"`
 	Placement                      PlacementConfig    `json:"placement,omitempty"                      yaml:"placement,omitempty"`
 	Standards                      []string           `json:"standards,omitempty"                      yaml:"standards,omitempty"`
@@ -41,6 +42,7 @@ type PolicyOptions struct {
 }
 
 type PolicySetOptions struct {
+	EnforcementPlacement       PlacementConfig `json:"enforcementPlacement,omitempty"       yaml:"enforcementPlacement,omitempty"`
 	Placement                  PlacementConfig `json:"placement,omitempty"                  yaml:"placement,omitempty"`
 	GeneratePolicySetPlacement bool            `json:"generatePolicySetPlacement,omitempty" yaml:"generatePolicySetPlacement,omitempty"`
 }
@@ -162,7 +164,8 @@ type PolicyDependency struct {
 }
 
 type PlacementBindingDefaults struct {
-	Name string `json:"name,omitempty" yaml:"name,omitempty"`
+	EnforcementName string `json:"enforcementName,omitempty" yaml:"enforcementName,omitempty"`
+	Name            string `json:"name,omitempty"            yaml:"name,omitempty"`
 }
 
 type Metadata struct {

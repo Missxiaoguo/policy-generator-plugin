@@ -23,6 +23,13 @@ PlacementBinding, specify `placement.placementPath` to an existing Placement man
 this way, `placementBindingDefaults.name` must be specified so that the generator can create unique
 names for the bindings.
 
+To generate a second Placement and PlacementBinding for selective enforcement, configure
+`enforcementPlacement`. This follows the same placement configuration rules as `placement`, but the
+generated PlacementBinding includes `subFilter: restricted` and
+`bindingOverrides.remediationAction: enforce`. When multiple policies or policy sets share the same
+selective enforcement placement, specify `placementBindingDefaults.enforcementName` so the
+generator can create unique names for those bindings.
+
 ## Policy expanders
 
 Policy expanders provide logic to create additional policies based on a given kind to give a

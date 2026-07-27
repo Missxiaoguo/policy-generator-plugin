@@ -4,6 +4,8 @@ metadata:
   name: policy-generator-name
 placementBindingDefaults:
   name: my-placement-binding
+  # Set this when multiple policies or policy sets share an enforcementPlacement.
+  # enforcementName: my-enforcement-placement-binding
 policyDefaults:
   # categories: []
   # complianceType: "musthave"
@@ -18,6 +20,11 @@ policyDefaults:
   #   labelSelector:
   #     matchLabels:
   #       cloud: red hat
+  # Example of using selective enforcement to create a second Placement and PlacementBinding.
+  # enforcementPlacement:
+  #   labelSelector:
+  #     matchLabels:
+  #       openshiftVersion: "4.17.3"
   remediationAction: inform
   severity: medium
   # standards: []

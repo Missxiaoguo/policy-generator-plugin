@@ -908,6 +908,275 @@ func TestGenerateMissingBindingName(t *testing.T) {
 	assertEqual(t, err.Error(), expected)
 }
 
+func TestGenerateSelectiveEnforcementPlacement(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+	createConfigMap(t, tmpDir, "configmap.yaml")
+
+	p := Plugin{}
+	var err error
+
+	p.baseDirectory, err = filepath.EvalSymlinks(tmpDir)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	p.PolicyDefaults.Namespace = "my-policies"
+	p.Policies = append(p.Policies, types.PolicyConfig{
+		Name: "policy-app-config",
+		Manifests: []types.Manifest{
+			{Path: path.Join(tmpDir, "configmap.yaml")},
+		},
+		PolicyOptions: types.PolicyOptions{
+			EnforcementPlacement: types.PlacementConfig{
+				LabelSelector: map[string]interface{}{"env": "prod"},
+			},
+		},
+	})
+	p.applyDefaults(map[string]interface{}{})
+
+	if err := p.assertValidConfig(); err != nil {
+		t.Fatal(err.Error())
+	}
+
+	outputBytes, err := p.Generate()
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	output := string(outputBytes)
+	placementCount := strings.Count(
+		output,
+		"apiVersion: cluster.open-cluster-management.io/v1beta1\nkind: Placement\n",
+	)
+
+	assertEqual(t, placementCount, 2)
+	assertEqual(t, strings.Count(output, "kind: PlacementBinding\n"), 2)
+
+	requiredSnippets := []string{
+		"name: placement-policy-app-config-enforcement",
+		"name: binding-policy-app-config-enforcement",
+		"bindingOverrides:\n    remediationAction: enforce",
+		"subFilter: restricted",
+		"key: env",
+	}
+
+	for _, snippet := range requiredSnippets {
+		if !strings.Contains(output, snippet) {
+			t.Fatalf("expected generated output to contain %q but it did not:\n%s", snippet, output)
+		}
+	}
+}
+
+func TestGenerateSelectiveEnforcementConsolidatedBinding(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+	createConfigMap(t, tmpDir, "configmap.yaml")
+
+	p := Plugin{}
+	var err error
+
+	p.baseDirectory, err = filepath.EvalSymlinks(tmpDir)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	p.PlacementBindingDefaults.EnforcementName = "my-enforcement-binding"
+	p.PolicyDefaults.EnforcementPlacement.Name = "my-enforcement-placement"
+	p.PolicyDefaults.Namespace = "my-policies"
+
+	for _, name := range []string{"policy-app-config", "policy-app-config2"} {
+		p.Policies = append(p.Policies, types.PolicyConfig{
+			Name: name,
+			Manifests: []types.Manifest{
+				{Path: path.Join(tmpDir, "configmap.yaml")},
+			},
+			PolicyOptions: types.PolicyOptions{
+				EnforcementPlacement: types.PlacementConfig{
+					LabelSelector: map[string]interface{}{"env": "prod"},
+				},
+			},
+		})
+	}
+
+	p.applyDefaults(map[string]interface{}{})
+
+	if err := p.assertValidConfig(); err != nil {
+		t.Fatal(err.Error())
+	}
+
+	outputBytes, err := p.Generate()
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	output := string(outputBytes)
+	assertEqual(t, strings.Count(output, "kind: PlacementBinding\n"), 3)
+	assertEqual(t, strings.Count(output, "name: my-enforcement-binding\n"), 1)
+
+	requiredSnippets := []string{
+		"name: my-enforcement-placement",
+		"name: my-enforcement-binding",
+		"name: policy-app-config",
+		"name: policy-app-config2",
+		"bindingOverrides:\n    remediationAction: enforce",
+		"subFilter: restricted",
+	}
+
+	for _, snippet := range requiredSnippets {
+		if !strings.Contains(output, snippet) {
+			t.Fatalf("expected generated output to contain %q but it did not:\n%s", snippet, output)
+		}
+	}
+}
+
+func TestGeneratePolicySetSelectiveEnforcementPlacement(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+	createConfigMap(t, tmpDir, "configmap.yaml")
+
+	p := Plugin{}
+	var err error
+
+	p.baseDirectory, err = filepath.EvalSymlinks(tmpDir)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	p.PlacementBindingDefaults.Name = "my-placement-binding"
+	p.PlacementBindingDefaults.EnforcementName = "my-enforcement-binding"
+	p.PolicyDefaults.Namespace = "my-policies"
+	p.Policies = append(p.Policies, types.PolicyConfig{
+		Name: "policy-app-config",
+		Manifests: []types.Manifest{
+			{Path: path.Join(tmpDir, "configmap.yaml")},
+		},
+		PolicyOptions: types.PolicyOptions{
+			PolicySets: []string{"my-policyset"},
+		},
+	})
+	p.PolicySets = []types.PolicySetConfig{
+		{
+			Name: "my-policyset",
+			PolicySetOptions: types.PolicySetOptions{
+				Placement: types.PlacementConfig{
+					Name:          "policyset-placement",
+					LabelSelector: map[string]interface{}{"my": "app"},
+				},
+				EnforcementPlacement: types.PlacementConfig{
+					LabelSelector: map[string]interface{}{"env": "prod"},
+				},
+			},
+		},
+	}
+
+	p.applyDefaults(map[string]interface{}{})
+
+	if err := p.assertValidConfig(); err != nil {
+		t.Fatal(err.Error())
+	}
+
+	outputBytes, err := p.Generate()
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	output := string(outputBytes)
+	placementCount := strings.Count(
+		output,
+		"apiVersion: cluster.open-cluster-management.io/v1beta1\nkind: Placement\n",
+	)
+
+	assertEqual(t, placementCount, 2)
+	assertEqual(t, strings.Count(output, "kind: PlacementBinding\n"), 2)
+
+	requiredSnippets := []string{
+		"name: my-placement-binding",
+		"name: my-enforcement-binding",
+		"name: placement-my-policyset-enforcement",
+		"kind: PolicySet",
+		"name: my-policyset",
+		"bindingOverrides:\n    remediationAction: enforce",
+		"subFilter: restricted",
+	}
+
+	for _, snippet := range requiredSnippets {
+		if !strings.Contains(output, snippet) {
+			t.Fatalf("expected generated output to contain %q but it did not:\n%s", snippet, output)
+		}
+	}
+}
+
+func TestGeneratePolicySelectiveEnforcementPlacementWhenInSet(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+	createConfigMap(t, tmpDir, "configmap.yaml")
+
+	p := Plugin{}
+	var err error
+
+	p.baseDirectory, err = filepath.EvalSymlinks(tmpDir)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	p.PlacementBindingDefaults.Name = "my-placement-binding"
+	p.PolicyDefaults.Namespace = "my-policies"
+	p.Policies = append(p.Policies, types.PolicyConfig{
+		Name: "policy-app-config",
+		Manifests: []types.Manifest{
+			{Path: path.Join(tmpDir, "configmap.yaml")},
+		},
+		PolicyOptions: types.PolicyOptions{
+			PolicySets: []string{"my-policyset"},
+			EnforcementPlacement: types.PlacementConfig{
+				LabelSelector: map[string]interface{}{"env": "prod"},
+			},
+		},
+	})
+	p.PolicySets = []types.PolicySetConfig{
+		{
+			Name: "my-policyset",
+			PolicySetOptions: types.PolicySetOptions{
+				Placement: types.PlacementConfig{
+					Name:          "policyset-placement",
+					LabelSelector: map[string]interface{}{"my": "app"},
+				},
+			},
+		},
+	}
+
+	p.applyDefaults(map[string]interface{}{})
+	p.Policies[0].GeneratePlacementWhenInSet = true
+
+	if err := p.assertValidConfig(); err != nil {
+		t.Fatal(err.Error())
+	}
+
+	outputBytes, err := p.Generate()
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	output := string(outputBytes)
+	assertEqual(t, strings.Count(output, "kind: PlacementBinding\n"), 3)
+
+	requiredSnippets := []string{
+		"name: binding-policy-app-config",
+		"name: binding-policy-app-config-enforcement",
+		"name: placement-policy-app-config-enforcement",
+		"name: my-placement-binding",
+		"bindingOverrides:\n    remediationAction: enforce",
+		"subFilter: restricted",
+	}
+
+	for _, snippet := range requiredSnippets {
+		if !strings.Contains(output, snippet) {
+			t.Fatalf("expected generated output to contain %q but it did not:\n%s", snippet, output)
+		}
+	}
+}
+
 func TestCreatePolicy(t *testing.T) {
 	t.Parallel()
 	tmpDir := t.TempDir()
@@ -2489,7 +2758,7 @@ func TestCreatePlacementBinding(t *testing.T) {
 		},
 	}
 
-	err := p.createPlacementBinding(bindingName, plrName, policyConfs, policySetConfs)
+	err := p.createPlacementBinding(bindingName, plrName, policyConfs, policySetConfs, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2515,6 +2784,48 @@ subjects:
     - apiGroup: policy.open-cluster-management.io
       kind: PolicySet
       name: my-policyset
+`
+	expected = strings.TrimPrefix(expected, "\n")
+	assertEqual(t, p.outputBuffer.String(), expected)
+}
+
+func TestCreateSelectiveEnforcementPlacementBinding(t *testing.T) {
+	t.Parallel()
+
+	p := Plugin{}
+	p.PolicyDefaults.Namespace = "my-policies"
+	policyConf := types.PolicyConfig{Name: "policy-app-config"}
+	p.Policies = append(p.Policies, policyConf)
+
+	err := p.createPlacementBinding(
+		"my-placement-binding",
+		"my-placement-rule",
+		[]*types.PolicyConfig{&p.Policies[0]},
+		nil,
+		true,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := `
+---
+apiVersion: policy.open-cluster-management.io/v1
+bindingOverrides:
+    remediationAction: enforce
+kind: PlacementBinding
+metadata:
+    name: my-placement-binding
+    namespace: my-policies
+placementRef:
+    apiGroup: cluster.open-cluster-management.io
+    kind: Placement
+    name: my-placement-rule
+subFilter: restricted
+subjects:
+    - apiGroup: policy.open-cluster-management.io
+      kind: Policy
+      name: policy-app-config
 `
 	expected = strings.TrimPrefix(expected, "\n")
 	assertEqual(t, p.outputBuffer.String(), expected)
@@ -3849,6 +4160,69 @@ func TestGenerateNonDNSBindingName(t *testing.T) {
 
 			expected := fmt.Sprintf(
 				"PlacementBindingDefaults.Name `%s` is not DNS compliant. See "+
+					"https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#dns-subdomain-names",
+				test.bindingName,
+			)
+			assertEqual(t, err.Error(), expected)
+		})
+	}
+}
+
+func TestGenerateNonDNSEnforcementBindingName(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+	createConfigMap(t, tmpDir, "configmap.yaml")
+
+	tests := []struct {
+		name        string
+		bindingName string
+	}{
+		{
+			name:        "capitalized",
+			bindingName: "my-placement-BINDING",
+		},
+		{
+			name:        "invalid character",
+			bindingName: "my-placement?binding",
+		},
+		{
+			name: "too many characters",
+			bindingName: "placementplacementplacementplacementplacementplacementplacementplacementplacement" +
+				"placementplacementplacementplacementplacementplacementplacementplacementplacementplacement" +
+				"placementplacementplacementplacementplacementplacementplacementplacementplacementbinding",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			p := Plugin{}
+			var err error
+
+			p.baseDirectory, err = filepath.EvalSymlinks(tmpDir)
+			if err != nil {
+				t.Fatal(err.Error())
+			}
+
+			p.PlacementBindingDefaults.EnforcementName = test.bindingName
+			p.PolicyDefaults.Namespace = "my-policies"
+			policyConf := types.PolicyConfig{
+				Name: "policy-app-config",
+				Manifests: []types.Manifest{
+					{Path: path.Join(tmpDir, "configmap.yaml")},
+				},
+			}
+			p.Policies = append(p.Policies, policyConf)
+			p.applyDefaults(map[string]interface{}{})
+
+			err = p.assertValidConfig()
+			if err == nil {
+				t.Fatal("Expected an error but did not get one")
+			}
+
+			expected := fmt.Sprintf(
+				"PlacementBindingDefaults.EnforcementName `%s` is not DNS compliant. See "+
 					"https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#dns-subdomain-names",
 				test.bindingName,
 			)

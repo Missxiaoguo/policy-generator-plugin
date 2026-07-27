@@ -9,6 +9,9 @@ metadata:
 placementBindingDefaults:
   # Set an explicit placement binding name to use rather than rely on the default.
   name: ""
+  # Optional. Set an explicit placement binding name to use for generated selective enforcement bindings
+  # rather than rely on the default.
+  enforcementName: ""
 
 # Required. Defaults for policy generation. Any default value listed here can be overridden under an entry in the
 # policies array except for "namespace".
@@ -154,6 +157,29 @@ policyDefaults:
     # responsibility of the administrator to ensure the placement exists. Use of this setting will prevent a Placement
     # from being generated, but the Placement Binding will still be created.
     placementName: ""
+  # Optional. The placement configuration for the selective enforcement binding of the policies. When set, the
+  # generator creates a second Placement and PlacementBinding with `subFilter: restricted` and
+  # `bindingOverrides.remediationAction: enforce`. This defaults to unset.
+  enforcementPlacement:
+    # To specify a placement, specify key:value pair cluster label selectors or the full LabelSelector for the desired
+    # cluster label selector. (See placementPath to specify an existing file instead.)
+    # For example, to specify a placement using matchExpressions:
+    #   labelSelector:
+    #     matchExpressions:
+    #       - key: provider
+    #         operator: NotIn
+    #         values:
+    #          - "cloud"
+    labelSelector: {}
+    # Optional. Specifying a name will consolidate placement rules that contain the same cluster selectors.
+    name: ""
+    # To reuse an existing placement manifest, specify the path here relative to the kustomization.yaml file. If given,
+    # this placement will be used by all policies by default. (See labelSelector to generate a new Placement instead.)
+    placementPath: ""
+    # Use a placement that already exists in the cluster in the same namespace as the policy to be generated. It is the
+    # responsibility of the administrator to ensure the placement exists. Use of this setting will prevent a Placement
+    # from being generated, but the Placement Binding will still be created.
+    placementName: ""
   # Optional. recreateOption describes whether to delete and recreate an object when an update is required. `IfRequired`
   # will recreate the object when updating an immutable field. `Always` will always recreate the object if a mismatch
   # is detected. `RecreateOption` has no effect when the `remediationAction` is `inform`. `IfRequired` has no effect
@@ -204,6 +230,11 @@ policySetDefaults:
   # all clusters. If a placement.name is not provided here for placement consolidation, it will fall back to
   # policyDefaults.placement.name, if provided there. (See policyDefaults.placement for description.)
   placement: {}
+  # Optional. The placement configuration for the selective enforcement binding of the policy sets. This defaults to
+  # unset. If an enforcementPlacement.name is not provided here for placement consolidation, it will fall back to
+  # policyDefaults.enforcementPlacement.name, if provided there. (See policyDefaults.enforcementPlacement for
+  # description.)
+  enforcementPlacement: {}
   # Optional. Whether to generate placement manifests for policy sets. This defaults to "true".
   generatePolicySetPlacement: true
 
@@ -349,6 +380,8 @@ policies:
     orderManifests: false
     # Optional. (See policyDefaults.placement for description.)
     placement: {}
+    # Optional. (See policyDefaults.enforcementPlacement for description.)
+    enforcementPlacement: {}
     # Optional. (See policyDefaults.remediationAction for description.)
     remediationAction: ""
     # Optional. (See policyDefaults.recreateOption for description.)
@@ -387,5 +420,8 @@ policySets:
     # Optional. (See policySetDefaults.placement to set a default placement for policy sets. See
     # policyDefaults.placement for description of placement options.)
     placement: {}
+    # Optional. (See policySetDefaults.enforcementPlacement to set a default selective enforcement placement for policy
+    # sets. See policyDefaults.enforcementPlacement for description of placement options.)
+    enforcementPlacement: {}
     # Optional. (See policySetDefaults.generatePolicySetPlacement for description.)
     generatePolicySetPlacement: true
