@@ -209,6 +209,9 @@ policyDefaults:
   # part of a policy set. Use this setting to turn off placement generation for policies not in policy sets. This
   # defaults to "true".
   generatePolicyPlacement: true
+  # Optional. Whether to generate the selective enforcement Placement and PlacementBinding when
+  # enforcementPlacement is configured. This is independent from generatePolicyPlacement. This defaults to "true".
+  generatePolicyEnforcementPlacement: true
   # Optional. When a policy is part of a policy set, by default the generator will not generate the placement for this
   # policy since a placement is generated for the policy set. If a placement should still be generated, set it to "true"
   # so that the policy will be deployed with both policy placement and policy set placement. This defaults to "false".
@@ -237,6 +240,9 @@ policySetDefaults:
   enforcementPlacement: {}
   # Optional. Whether to generate placement manifests for policy sets. This defaults to "true".
   generatePolicySetPlacement: true
+  # Optional. Whether to generate the selective enforcement Placement and PlacementBinding for policy sets when
+  # enforcementPlacement is configured. This is independent from generatePolicySetPlacement. This defaults to "true".
+  generatePolicySetEnforcementPlacement: true
 
 # Required. The list of policies to create along with overrides to either the default values or, if set, the values
 # given in policyDefaults.
@@ -397,6 +403,8 @@ policies:
     policySets: []
     # Optional. (See policyDefaults.generatePolicyPlacement for description.)
     generatePolicyPlacement: true
+    # Optional. (See policyDefaults.generatePolicyEnforcementPlacement for description.)
+    generatePolicyEnforcementPlacement: true
     # Optional. (See policyDefaults.generatePlacementWhenInSet for description.)
     generatePlacementWhenInSet: false
     # Optional. Annotations that the policy will include under its metadata.annotations. It will overwrite the
@@ -425,3 +433,5 @@ policySets:
     enforcementPlacement: {}
     # Optional. (See policySetDefaults.generatePolicySetPlacement for description.)
     generatePolicySetPlacement: true
+    # Optional. (See policySetDefaults.generatePolicySetEnforcementPlacement for description.)
+    generatePolicySetEnforcementPlacement: true

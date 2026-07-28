@@ -25,6 +25,7 @@ policyDefaults:
   #   labelSelector:
   #     matchLabels:
   #       openshiftVersion: "4.17.3"
+  # generatePolicyEnforcementPlacement: true
   remediationAction: inform
   severity: medium
   # standards: []

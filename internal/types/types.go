@@ -17,34 +17,36 @@ type CustomMessage struct {
 }
 
 type PolicyOptions struct {
-	Categories                     []string           `json:"categories,omitempty"                     yaml:"categories,omitempty"`
-	Controls                       []string           `json:"controls,omitempty"                       yaml:"controls,omitempty"`
-	CopyPolicyMetadata             bool               `json:"copyPolicyMetadata,omitempty"             yaml:"copyPolicyMetadata,omitempty"`
-	Dependencies                   []PolicyDependency `json:"dependencies,omitempty"                   yaml:"dependencies,omitempty"`
-	Description                    string             `json:"description,omitempty"                    yaml:"description,omitempty"`
-	EnforcementPlacement           PlacementConfig    `json:"enforcementPlacement,omitempty"           yaml:"enforcementPlacement,omitempty"`
-	ExtraDependencies              []PolicyDependency `json:"extraDependencies,omitempty"              yaml:"extraDependencies,omitempty"`
-	Placement                      PlacementConfig    `json:"placement,omitempty"                      yaml:"placement,omitempty"`
-	Standards                      []string           `json:"standards,omitempty"                      yaml:"standards,omitempty"`
-	ConsolidateManifests           bool               `json:"consolidateManifests,omitempty"           yaml:"consolidateManifests,omitempty"`
-	OrderManifests                 bool               `json:"orderManifests"                           yaml:"orderManifests"`
-	Disabled                       bool               `json:"disabled,omitempty"                       yaml:"disabled,omitempty"`
-	IgnorePending                  bool               `json:"ignorePending,omitempty"                  yaml:"ignorePending,omitempty"`
-	InformGatekeeperPolicies       bool               `json:"informGatekeeperPolicies,omitempty"       yaml:"informGatekeeperPolicies,omitempty"`
-	InformKyvernoPolicies          bool               `json:"informKyvernoPolicies,omitempty"          yaml:"informKyvernoPolicies,omitempty"`
-	GeneratePolicyPlacement        bool               `json:"generatePolicyPlacement,omitempty"        yaml:"generatePolicyPlacement,omitempty"`
-	GeneratePlacementWhenInSet     bool               `json:"generatePlacementWhenInSet,omitempty"     yaml:"generatePlacementWhenInSet,omitempty"`
-	PolicySets                     []string           `json:"policySets,omitempty"                     yaml:"policySets,omitempty"`
-	PolicyAnnotations              map[string]string  `json:"policyAnnotations,omitempty"              yaml:"policyAnnotations,omitempty"`
-	PolicyLabels                   map[string]string  `json:"policyLabels,omitempty"                   yaml:"policyLabels,omitempty"`
-	ConfigurationPolicyAnnotations map[string]string  `json:"configurationPolicyAnnotations,omitempty" yaml:"configurationPolicyAnnotations,omitempty"`
-	HubTemplateOptions             HubTemplateOptions `json:"hubTemplateOptions,omitempty"             yaml:"hubTemplateOptions,omitempty"`
+	Categories                         []string           `json:"categories,omitempty"                         yaml:"categories,omitempty"`
+	Controls                           []string           `json:"controls,omitempty"                           yaml:"controls,omitempty"`
+	CopyPolicyMetadata                 bool               `json:"copyPolicyMetadata,omitempty"                 yaml:"copyPolicyMetadata,omitempty"`
+	Dependencies                       []PolicyDependency `json:"dependencies,omitempty"                       yaml:"dependencies,omitempty"`
+	Description                        string             `json:"description,omitempty"                        yaml:"description,omitempty"`
+	EnforcementPlacement               PlacementConfig    `json:"enforcementPlacement,omitempty"               yaml:"enforcementPlacement,omitempty"`
+	ExtraDependencies                  []PolicyDependency `json:"extraDependencies,omitempty"                  yaml:"extraDependencies,omitempty"`
+	Placement                          PlacementConfig    `json:"placement,omitempty"                          yaml:"placement,omitempty"`
+	Standards                          []string           `json:"standards,omitempty"                          yaml:"standards,omitempty"`
+	ConsolidateManifests               bool               `json:"consolidateManifests,omitempty"               yaml:"consolidateManifests,omitempty"`
+	OrderManifests                     bool               `json:"orderManifests"                               yaml:"orderManifests"`
+	Disabled                           bool               `json:"disabled,omitempty"                           yaml:"disabled,omitempty"`
+	IgnorePending                      bool               `json:"ignorePending,omitempty"                      yaml:"ignorePending,omitempty"`
+	InformGatekeeperPolicies           bool               `json:"informGatekeeperPolicies,omitempty"           yaml:"informGatekeeperPolicies,omitempty"`
+	InformKyvernoPolicies              bool               `json:"informKyvernoPolicies,omitempty"              yaml:"informKyvernoPolicies,omitempty"`
+	GeneratePolicyPlacement            bool               `json:"generatePolicyPlacement,omitempty"            yaml:"generatePolicyPlacement,omitempty"`
+	GeneratePolicyEnforcementPlacement bool               `json:"generatePolicyEnforcementPlacement,omitempty" yaml:"generatePolicyEnforcementPlacement,omitempty"`
+	GeneratePlacementWhenInSet         bool               `json:"generatePlacementWhenInSet,omitempty"         yaml:"generatePlacementWhenInSet,omitempty"`
+	PolicySets                         []string           `json:"policySets,omitempty"                         yaml:"policySets,omitempty"`
+	PolicyAnnotations                  map[string]string  `json:"policyAnnotations,omitempty"                  yaml:"policyAnnotations,omitempty"`
+	PolicyLabels                       map[string]string  `json:"policyLabels,omitempty"                       yaml:"policyLabels,omitempty"`
+	ConfigurationPolicyAnnotations     map[string]string  `json:"configurationPolicyAnnotations,omitempty"     yaml:"configurationPolicyAnnotations,omitempty"`
+	HubTemplateOptions                 HubTemplateOptions `json:"hubTemplateOptions,omitempty"                 yaml:"hubTemplateOptions,omitempty"`
 }
 
 type PolicySetOptions struct {
-	EnforcementPlacement       PlacementConfig `json:"enforcementPlacement,omitempty"       yaml:"enforcementPlacement,omitempty"`
-	Placement                  PlacementConfig `json:"placement,omitempty"                  yaml:"placement,omitempty"`
-	GeneratePolicySetPlacement bool            `json:"generatePolicySetPlacement,omitempty" yaml:"generatePolicySetPlacement,omitempty"`
+	EnforcementPlacement                  PlacementConfig `json:"enforcementPlacement,omitempty"                  yaml:"enforcementPlacement,omitempty"`
+	Placement                             PlacementConfig `json:"placement,omitempty"                             yaml:"placement,omitempty"`
+	GeneratePolicySetPlacement            bool            `json:"generatePolicySetPlacement,omitempty"            yaml:"generatePolicySetPlacement,omitempty"`
+	GeneratePolicySetEnforcementPlacement bool            `json:"generatePolicySetEnforcementPlacement,omitempty" yaml:"generatePolicySetEnforcementPlacement,omitempty"`
 }
 
 type ConfigurationPolicyOptions struct {

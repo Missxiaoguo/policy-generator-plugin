@@ -159,19 +159,21 @@ func (p *Plugin) Generate() ([]byte, error) {
 			}
 
 			addPlacementBindingSubject(plcNameToPolicyAndSetIdxs, plcName, "policy", i)
+		}
 
-			if p.hasPolicyEnforcementPlacement(p.Policies[i].EnforcementPlacement) {
-				enforcementPlcName, err := p.createPolicyEnforcementPlacement(
-					p.Policies[i].EnforcementPlacement, p.Policies[i].Name,
-				)
-				if err != nil {
-					return nil, err
-				}
-
-				addPlacementBindingSubject(
-					enforcementPlcNameToPolicyAndSetIdxs, enforcementPlcName, "policy", i,
-				)
+		// Generate the selective enforcement placement independently from the primary placement.
+		// Policy-level enforcement still respects generatePlacementWhenInSet when the policy is in a set.
+		if p.shouldGeneratePolicyEnforcementPlacement(&p.Policies[i]) {
+			enforcementPlcName, err := p.createPolicyEnforcementPlacement(
+				p.Policies[i].EnforcementPlacement, p.Policies[i].Name,
+			)
+			if err != nil {
+				return nil, err
 			}
+
+			addPlacementBindingSubject(
+				enforcementPlcNameToPolicyAndSetIdxs, enforcementPlcName, "policy", i,
+			)
 		}
 	}
 
@@ -184,19 +186,19 @@ func (p *Plugin) Generate() ([]byte, error) {
 			}
 
 			addPlacementBindingSubject(plcNameToPolicyAndSetIdxs, plcName, "policyset", i)
+		}
 
-			if p.hasPolicySetEnforcementPlacement(p.PolicySets[i].EnforcementPlacement) {
-				enforcementPlcName, err := p.createPolicySetEnforcementPlacement(
-					p.PolicySets[i].EnforcementPlacement, p.PolicySets[i].Name,
-				)
-				if err != nil {
-					return nil, err
-				}
-
-				addPlacementBindingSubject(
-					enforcementPlcNameToPolicyAndSetIdxs, enforcementPlcName, "policyset", i,
-				)
+		if p.shouldGeneratePolicySetEnforcementPlacement(&p.PolicySets[i]) {
+			enforcementPlcName, err := p.createPolicySetEnforcementPlacement(
+				p.PolicySets[i].EnforcementPlacement, p.PolicySets[i].Name,
+			)
+			if err != nil {
+				return nil, err
 			}
+
+			addPlacementBindingSubject(
+				enforcementPlcNameToPolicyAndSetIdxs, enforcementPlcName, "policyset", i,
+			)
 		}
 	}
 
@@ -576,6 +578,14 @@ func (p *Plugin) applyDefaults(unmarshaledConfig map[string]interface{}) {
 		p.PolicyDefaults.GeneratePolicyPlacement = true
 	}
 
+	// GeneratePolicyEnforcementPlacement defaults to true unless explicitly set in the config.
+	gpepValue, setGpep := getPolicyDefaultBool(unmarshaledConfig, "generatePolicyEnforcementPlacement")
+	if setGpep {
+		p.PolicyDefaults.GeneratePolicyEnforcementPlacement = gpepValue
+	} else {
+		p.PolicyDefaults.GeneratePolicyEnforcementPlacement = true
+	}
+
 	// Generate temporary sets to later merge the policy sets declared in p.Policies[*] and p.PolicySets
 	plcsetToPlc := make(map[string]map[string]bool)
 	plcToPlcset := make(map[string]map[string]bool)
@@ -720,6 +730,14 @@ func (p *Plugin) applyDefaults(unmarshaledConfig map[string]interface{}) {
 			policy.GeneratePolicyPlacement = gppValue
 		} else {
 			policy.GeneratePolicyPlacement = p.PolicyDefaults.GeneratePolicyPlacement
+		}
+
+		// GeneratePolicyEnforcementPlacement defaults to true unless explicitly set in the config.
+		gpepValue, setGpep := getPolicyBool(unmarshaledConfig, i, "generatePolicyEnforcementPlacement")
+		if setGpep {
+			policy.GeneratePolicyEnforcementPlacement = gpepValue
+		} else {
+			policy.GeneratePolicyEnforcementPlacement = p.PolicyDefaults.GeneratePolicyEnforcementPlacement
 		}
 
 		// GeneratePlacementWhenInSet defaults to false unless explicitly set in the config.
@@ -929,6 +947,13 @@ func (p *Plugin) applyDefaults(unmarshaledConfig map[string]interface{}) {
 		p.PolicySetDefaults.GeneratePolicySetPlacement = true
 	}
 
+	gpsepValue, setGpsep := getPolicySetDefaultBool(unmarshaledConfig, "generatePolicySetEnforcementPlacement")
+	if setGpsep {
+		p.PolicySetDefaults.GeneratePolicySetEnforcementPlacement = gpsepValue
+	} else {
+		p.PolicySetDefaults.GeneratePolicySetEnforcementPlacement = true
+	}
+
 	// Sync up the declared policy sets in p.Policies[*]
 	for i := range p.PolicySets {
 		plcset := &p.PolicySets[i]
@@ -944,6 +969,14 @@ func (p *Plugin) applyDefaults(unmarshaledConfig map[string]interface{}) {
 			plcset.GeneratePolicySetPlacement = gpspValue
 		} else {
 			plcset.GeneratePolicySetPlacement = p.PolicySetDefaults.GeneratePolicySetPlacement
+		}
+
+		// GeneratePolicySetEnforcementPlacement defaults to true unless explicitly set in the config.
+		gpsepValue, setGpsep := getPolicySetBool(unmarshaledConfig, i, "generatePolicySetEnforcementPlacement")
+		if setGpsep {
+			plcset.GeneratePolicySetEnforcementPlacement = gpsepValue
+		} else {
+			plcset.GeneratePolicySetEnforcementPlacement = p.PolicySetDefaults.GeneratePolicySetEnforcementPlacement
 		}
 
 		applyDefaultPlacementFields(&plcset.EnforcementPlacement, p.PolicySetDefaults.EnforcementPlacement)
@@ -1820,6 +1853,20 @@ func (p *Plugin) hasPolicySetEnforcementPlacement(placement types.PlacementConfi
 	return isPlacementConfigured(placement) ||
 		isPlacementConfigured(p.PolicySetDefaults.EnforcementPlacement) ||
 		p.PolicyDefaults.EnforcementPlacement.Name != ""
+}
+
+func (p *Plugin) shouldGeneratePolicyEnforcementPlacement(policy *types.PolicyConfig) bool {
+	if !policy.GeneratePolicyEnforcementPlacement || !p.hasPolicyEnforcementPlacement(policy.EnforcementPlacement) {
+		return false
+	}
+
+	// Match the existing membership gate used for policy-level placements.
+	return policy.GeneratePlacementWhenInSet || len(policy.PolicySets) == 0
+}
+
+func (p *Plugin) shouldGeneratePolicySetEnforcementPlacement(policySet *types.PolicySetConfig) bool {
+	return policySet.GeneratePolicySetEnforcementPlacement &&
+		p.hasPolicySetEnforcementPlacement(policySet.EnforcementPlacement)
 }
 
 // generateSelector determines the type of input and creates a map of selectors to be used in the

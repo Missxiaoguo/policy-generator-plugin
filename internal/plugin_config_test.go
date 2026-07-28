@@ -301,7 +301,9 @@ policySets:
 		p.PolicyDefaults.EnforcementPlacement.LabelSelector,
 		map[string]interface{}{"env": "prod"},
 	)
+	assertEqual(t, p.PolicyDefaults.GeneratePolicyEnforcementPlacement, true)
 	assertEqual(t, p.PolicySetDefaults.EnforcementPlacement.PlacementName, "policyset-enforcement")
+	assertEqual(t, p.PolicySetDefaults.GeneratePolicySetEnforcementPlacement, true)
 
 	policy1 := p.Policies[0]
 	assertReflectEqual(
@@ -310,14 +312,17 @@ policySets:
 		map[string]interface{}{"env": "prod"},
 	)
 	assertEqual(t, policy1.EnforcementPlacement.PlacementName, "")
+	assertEqual(t, policy1.GeneratePolicyEnforcementPlacement, true)
 
 	policy2 := p.Policies[1]
 	assertEqual(t, len(policy2.EnforcementPlacement.LabelSelector), 0)
 	assertEqual(t, policy2.EnforcementPlacement.PlacementName, "existing-enforcement")
+	assertEqual(t, policy2.GeneratePolicyEnforcementPlacement, true)
 
 	policySet1 := p.PolicySets[0]
 	assertEqual(t, policySet1.EnforcementPlacement.PlacementName, "policyset-enforcement")
 	assertEqual(t, len(policySet1.EnforcementPlacement.LabelSelector), 0)
+	assertEqual(t, policySet1.GeneratePolicySetEnforcementPlacement, true)
 
 	policySet2 := p.PolicySets[1]
 	assertReflectEqual(
@@ -326,6 +331,66 @@ policySets:
 		map[string]interface{}{"region": "east"},
 	)
 	assertEqual(t, policySet2.EnforcementPlacement.PlacementName, "")
+	assertEqual(t, policySet2.GeneratePolicySetEnforcementPlacement, true)
+}
+
+func TestConfigGeneratePolicyEnforcementPlacementOverride(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+	createConfigMap(t, tmpDir, "configmap.yaml")
+	configMapPath := path.Join(tmpDir, "configmap.yaml")
+
+	config := fmt.Sprintf(
+		`
+apiVersion: policy.open-cluster-management.io/v1
+kind: PolicyGenerator
+metadata:
+  name: policy-generator-name
+policyDefaults:
+  namespace: my-policies
+  generatePolicyEnforcementPlacement: true
+  enforcementPlacement:
+    labelSelector:
+      env: prod
+policySetDefaults:
+  generatePolicySetEnforcementPlacement: true
+  enforcementPlacement:
+    labelSelector:
+      region: west
+policies:
+- name: policy-app-config
+  manifests:
+    - path: %s
+- name: policy-validator
+  generatePolicyEnforcementPlacement: false
+  manifests:
+    - path: %s
+policySets:
+- name: my-policyset
+  policies:
+    - policy-app-config
+- name: my-policyset-skip
+  generatePolicySetEnforcementPlacement: false
+  policies:
+    - policy-validator
+`,
+		configMapPath,
+		configMapPath,
+	)
+
+	p := Plugin{}
+
+	err := p.Config([]byte(config), tmpDir)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	assertEqual(t, p.PolicyDefaults.GeneratePolicyEnforcementPlacement, true)
+	assertEqual(t, p.Policies[0].GeneratePolicyEnforcementPlacement, true)
+	assertEqual(t, p.Policies[1].GeneratePolicyEnforcementPlacement, false)
+	assertEqual(t, p.PolicySetDefaults.GeneratePolicySetEnforcementPlacement, true)
+	assertEqual(t, p.PolicySets[0].GeneratePolicySetEnforcementPlacement, true)
+	assertEqual(t, p.PolicySets[1].GeneratePolicySetEnforcementPlacement, false)
 }
 
 func TestConfigAllDefaults(t *testing.T) {
@@ -368,6 +433,8 @@ policies:
 
 	assertEqual(t, p.PolicyDefaults.InformGatekeeperPolicies, true)
 	assertEqual(t, p.PolicyDefaults.InformKyvernoPolicies, true)
+	assertEqual(t, p.PolicyDefaults.GeneratePolicyPlacement, true)
+	assertEqual(t, p.PolicyDefaults.GeneratePolicyEnforcementPlacement, true)
 	assertReflectEqual(t, p.PolicyDefaults.NamespaceSelector, expectedNsSelector)
 	assertEqual(t, p.PolicyDefaults.Placement.PlacementPath, "")
 	assertEqual(t, len(p.PolicyDefaults.Placement.LabelSelector), 0)
@@ -394,6 +461,8 @@ policies:
 	assertReflectEqual(t, policy.Standards, []string{"NIST SP 800-53"})
 	assertEqual(t, policy.InformGatekeeperPolicies, true)
 	assertEqual(t, policy.InformKyvernoPolicies, true)
+	assertEqual(t, policy.GeneratePolicyPlacement, true)
+	assertEqual(t, policy.GeneratePolicyEnforcementPlacement, true)
 }
 
 func TestConfigNoNamespace(t *testing.T) {

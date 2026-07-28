@@ -28,7 +28,8 @@ To generate a second Placement and PlacementBinding for selective enforcement, c
 generated PlacementBinding includes `subFilter: restricted` and
 `bindingOverrides.remediationAction: enforce`. When multiple policies or policy sets share the same
 selective enforcement placement, specify `placementBindingDefaults.enforcementName` so the
-generator can create unique names for those bindings.
+generator can create unique names for those bindings. Use `generatePolicyEnforcementPlacement` or
+`generatePolicySetEnforcementPlacement` to independently enable or disable that second binding path.
 
 ## Policy expanders
 

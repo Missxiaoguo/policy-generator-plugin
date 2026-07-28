@@ -1177,6 +1177,226 @@ func TestGeneratePolicySelectiveEnforcementPlacementWhenInSet(t *testing.T) {
 	}
 }
 
+func TestGeneratePolicyEnforcementPlacementOptOut(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+	createConfigMap(t, tmpDir, "configmap.yaml")
+
+	p := Plugin{}
+	var err error
+
+	p.baseDirectory, err = filepath.EvalSymlinks(tmpDir)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	p.PlacementBindingDefaults.EnforcementName = "my-enforcement-binding"
+	p.PolicyDefaults.EnforcementPlacement.Name = "my-enforcement-placement"
+	p.PolicyDefaults.Namespace = "my-policies"
+	p.Policies = append(p.Policies,
+		types.PolicyConfig{
+			Name: "policy-app-config",
+			Manifests: []types.Manifest{
+				{Path: path.Join(tmpDir, "configmap.yaml")},
+			},
+			PolicyOptions: types.PolicyOptions{
+				EnforcementPlacement: types.PlacementConfig{
+					LabelSelector: map[string]interface{}{"env": "prod"},
+				},
+			},
+		},
+		types.PolicyConfig{
+			Name: "policy-validator",
+			Manifests: []types.Manifest{
+				{Path: path.Join(tmpDir, "configmap.yaml")},
+			},
+			PolicyOptions: types.PolicyOptions{
+				EnforcementPlacement: types.PlacementConfig{
+					LabelSelector: map[string]interface{}{"env": "prod"},
+				},
+			},
+		},
+	)
+
+	p.applyDefaults(map[string]interface{}{
+		"policies": []interface{}{
+			map[string]interface{}{},
+			map[string]interface{}{
+				"generatePolicyEnforcementPlacement": false,
+			},
+		},
+	})
+
+	if err := p.assertValidConfig(); err != nil {
+		t.Fatal(err.Error())
+	}
+
+	assertEqual(t, p.Policies[0].GeneratePolicyEnforcementPlacement, true)
+	assertEqual(t, p.Policies[1].GeneratePolicyEnforcementPlacement, false)
+
+	outputBytes, err := p.Generate()
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	output := string(outputBytes)
+	assertEqual(t, strings.Count(output, "kind: PlacementBinding\n"), 3)
+
+	if !strings.Contains(output, "name: binding-policy-app-config-enforcement\n") {
+		t.Fatalf("expected enforcement binding for policy-app-config, got:\n%s", output)
+	}
+
+	if strings.Contains(output, "name: binding-policy-validator-enforcement\n") {
+		t.Fatalf("did not expect validator enforcement binding, got:\n%s", output)
+	}
+
+	if !strings.Contains(output, "name: binding-policy-validator\n") {
+		t.Fatalf("expected validator primary binding, got:\n%s", output)
+	}
+
+	if !strings.Contains(output, "bindingOverrides:\n    remediationAction: enforce") {
+		t.Fatalf("expected selective enforcement binding overrides, got:\n%s", output)
+	}
+}
+
+func TestGeneratePolicySetEnforcementPlacementOptOut(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+	createConfigMap(t, tmpDir, "configmap.yaml")
+
+	p := Plugin{}
+	var err error
+
+	p.baseDirectory, err = filepath.EvalSymlinks(tmpDir)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	p.PlacementBindingDefaults.Name = "my-placement-binding"
+	p.PlacementBindingDefaults.EnforcementName = "my-enforcement-binding"
+	p.PolicyDefaults.Namespace = "my-policies"
+	p.Policies = append(p.Policies, types.PolicyConfig{
+		Name: "policy-app-config",
+		Manifests: []types.Manifest{
+			{Path: path.Join(tmpDir, "configmap.yaml")},
+		},
+		PolicyOptions: types.PolicyOptions{
+			PolicySets: []string{"my-policyset"},
+		},
+	})
+	p.PolicySets = []types.PolicySetConfig{
+		{
+			Name: "my-policyset",
+			PolicySetOptions: types.PolicySetOptions{
+				Placement: types.PlacementConfig{
+					Name:          "policyset-placement",
+					LabelSelector: map[string]interface{}{"my": "app"},
+				},
+				EnforcementPlacement: types.PlacementConfig{
+					LabelSelector: map[string]interface{}{"env": "prod"},
+				},
+			},
+		},
+	}
+
+	p.applyDefaults(map[string]interface{}{
+		"policySets": []interface{}{
+			map[string]interface{}{
+				"generatePolicySetEnforcementPlacement": false,
+			},
+		},
+	})
+
+	if err := p.assertValidConfig(); err != nil {
+		t.Fatal(err.Error())
+	}
+
+	assertEqual(t, p.PolicySets[0].GeneratePolicySetEnforcementPlacement, false)
+
+	outputBytes, err := p.Generate()
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	output := string(outputBytes)
+	assertEqual(t, strings.Count(output, "kind: PlacementBinding\n"), 1)
+
+	if strings.Contains(output, "bindingOverrides:") {
+		t.Fatalf("did not expect enforcement binding, got:\n%s", output)
+	}
+
+	if !strings.Contains(output, "name: my-placement-binding\n") {
+		t.Fatalf("expected primary policy set binding, got:\n%s", output)
+	}
+}
+
+func TestGenerateIndependentPolicyEnforcementPlacement(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+	createConfigMap(t, tmpDir, "configmap.yaml")
+
+	p := Plugin{}
+	var err error
+
+	p.baseDirectory, err = filepath.EvalSymlinks(tmpDir)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	p.PolicyDefaults.Namespace = "my-policies"
+	p.Policies = append(p.Policies, types.PolicyConfig{
+		Name: "policy-app-config",
+		Manifests: []types.Manifest{
+			{Path: path.Join(tmpDir, "configmap.yaml")},
+		},
+		PolicyOptions: types.PolicyOptions{
+			EnforcementPlacement: types.PlacementConfig{
+				LabelSelector: map[string]interface{}{"env": "prod"},
+			},
+		},
+	})
+
+	p.applyDefaults(map[string]interface{}{
+		"policies": []interface{}{
+			map[string]interface{}{
+				"generatePolicyPlacement": false,
+			},
+		},
+	})
+
+	if err := p.assertValidConfig(); err != nil {
+		t.Fatal(err.Error())
+	}
+
+	assertEqual(t, p.Policies[0].GeneratePolicyPlacement, false)
+	assertEqual(t, p.Policies[0].GeneratePolicyEnforcementPlacement, true)
+
+	outputBytes, err := p.Generate()
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	output := string(outputBytes)
+	assertEqual(t, strings.Count(output, "kind: PlacementBinding\n"), 1)
+
+	if strings.Contains(output, "name: binding-policy-app-config\n") &&
+		!strings.Contains(output, "name: binding-policy-app-config-enforcement\n") {
+		t.Fatalf("expected only enforcement binding, got:\n%s", output)
+	}
+
+	requiredSnippets := []string{
+		"name: binding-policy-app-config-enforcement",
+		"bindingOverrides:\n    remediationAction: enforce",
+		"subFilter: restricted",
+	}
+
+	for _, snippet := range requiredSnippets {
+		if !strings.Contains(output, snippet) {
+			t.Fatalf("expected generated output to contain %q but it did not:\n%s", snippet, output)
+		}
+	}
+}
+
 func TestCreatePolicy(t *testing.T) {
 	t.Parallel()
 	tmpDir := t.TempDir()
@@ -2855,7 +3075,8 @@ func TestGeneratePolicySets(t *testing.T) {
 						"policy-app-config2",
 					},
 					PolicySetOptions: types.PolicySetOptions{
-						GeneratePolicySetPlacement: true,
+						GeneratePolicySetPlacement:            true,
+						GeneratePolicySetEnforcementPlacement: true,
 					},
 				},
 			},
@@ -2888,7 +3109,8 @@ func TestGeneratePolicySets(t *testing.T) {
 						"policy-app-config",
 					},
 					PolicySetOptions: types.PolicySetOptions{
-						GeneratePolicySetPlacement: true,
+						GeneratePolicySetPlacement:            true,
+						GeneratePolicySetEnforcementPlacement: true,
 					},
 				},
 				{
@@ -2897,7 +3119,8 @@ func TestGeneratePolicySets(t *testing.T) {
 						"policy-app-config2",
 					},
 					PolicySetOptions: types.PolicySetOptions{
-						GeneratePolicySetPlacement: true,
+						GeneratePolicySetPlacement:            true,
+						GeneratePolicySetEnforcementPlacement: true,
 					},
 				},
 			},
@@ -2930,7 +3153,8 @@ func TestGeneratePolicySets(t *testing.T) {
 						"policy-app-config2",
 					},
 					PolicySetOptions: types.PolicySetOptions{
-						GeneratePolicySetPlacement: true,
+						GeneratePolicySetPlacement:            true,
+						GeneratePolicySetEnforcementPlacement: true,
 					},
 				},
 			},
@@ -2965,7 +3189,8 @@ func TestGeneratePolicySets(t *testing.T) {
 						"pre-exists-policy",
 					},
 					PolicySetOptions: types.PolicySetOptions{
-						GeneratePolicySetPlacement: true,
+						GeneratePolicySetPlacement:            true,
+						GeneratePolicySetEnforcementPlacement: true,
 					},
 				},
 			},
